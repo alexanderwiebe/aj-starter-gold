@@ -1,27 +1,24 @@
-import { Component, inject, signal } from '@angular/core';
-import { HomeService } from '../services/home.service';
+import { Component, inject } from '@angular/core';
+import { HomeStore } from '../store/home.store';
 
 @Component({
   selector: 'app-home',
   standalone: true,
   template: `
     <h1>Welcome to AI Document</h1>
-    <button (click)="testApi()">Test API</button>
-    @if (message()) {
-      <p data-testid="api-response">API Response: {{ message() }}</p>
+    <button (click)="testApi()" [disabled]="store.loading()">
+      {{ store.loading() ? 'Loading...' : 'Test API' }}
+    </button>
+    @if (store.hasMessage()) {
+      <p data-testid="api-response">API Response: {{ store.displayMessage() }}</p>
     }
   `,
   styles: ``
 })
 export class HomeComponent {
-  private readonly homeService = inject(HomeService);
-
-  readonly message = signal<string>('');
+  readonly store = inject(HomeStore);
 
   testApi() {
-    this.homeService.getHello().subscribe({
-      next: (response) => this.message.set(response),
-      error: (err) => this.message.set('Error: ' + err.message)
-    });
+    this.store.loadMessage();
   }
 }

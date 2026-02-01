@@ -58,6 +58,12 @@ fe/main/src/app/
     │   └── *.component.ts
     ├── services/             # Services specific to this feature
     │   └── *.service.ts
+    ├── store/                # NgRx SignalStore for this feature
+    │   ├── <feature>.state.ts      # State interface and initial state
+    │   ├── <feature>.selectors.ts  # Computed selector functions
+    │   ├── <feature>.actions.ts    # Action type definitions
+    │   ├── <feature>.effects.ts    # Side effect functions (rxMethod)
+    │   └── <feature>.store.ts      # Main SignalStore definition
     ├── directives/           # Directives specific to this feature
     │   └── *.directive.ts
     ├── pipes/                # Pipes specific to this feature
@@ -73,6 +79,19 @@ fe/main/src/app/
 - Files use type suffixes: `.component.ts`, `.service.ts`, `.directive.ts`, `.pipe.ts`
 - Standalone components (no NgModules)
 - Class names include type suffix (e.g., `HomeComponent`, `AuthService`)
+
+**NgRx SignalStore Conventions:**
+- Each feature domain has its own `store/` folder
+- Store files follow the pattern: `<domain>.<artifact-type>.ts`
+  - `<domain>.state.ts` - State interface (`<Domain>State`) and `initial<Domain>State`
+  - `<domain>.selectors.ts` - Pure functions for computed values (used with `withComputed`)
+  - `<domain>.actions.ts` - Action interface defining method signatures
+  - `<domain>.effects.ts` - Side effect functions using `rxMethod` and RxJS operators
+  - `<domain>.store.ts` - Main `signalStore()` definition combining state, computed, and methods
+- Stores are provided at root level: `signalStore({ providedIn: 'root' }, ...)`
+- Use `patchState()` for state updates within methods
+- Use `rxMethod` from `@ngrx/signals/rxjs-interop` for async operations
+- Use `tapResponse` from `@ngrx/operators` for handling Observable success/error
 
 **About `shtuff/` (use reluctantly):**
 - A `shtuff/` folder exists for truly generic utilities that don't belong to any domain
