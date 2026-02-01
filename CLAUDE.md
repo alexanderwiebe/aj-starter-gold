@@ -58,6 +58,13 @@ fe/main/src/app/
     │   └── *.component.ts
     ├── services/             # Services specific to this feature
     │   └── *.service.ts
+    ├── store/                # NgRx SignalStore for this feature
+    │   ├── <feature>.state.ts      # State interface and initial state
+    │   ├── <feature>.selectors.ts  # Computed selector functions
+    │   ├── <feature>.events.ts     # Event definitions (eventGroup)
+    │   ├── <feature>.reducers.ts   # Reducer functions (on handlers)
+    │   ├── <feature>.effects.ts    # Side effect functions (withEffects)
+    │   └── <feature>.store.ts      # Main SignalStore definition
     ├── directives/           # Directives specific to this feature
     │   └── *.directive.ts
     ├── pipes/                # Pipes specific to this feature
@@ -73,6 +80,22 @@ fe/main/src/app/
 - Files use type suffixes: `.component.ts`, `.service.ts`, `.directive.ts`, `.pipe.ts`
 - Standalone components (no NgModules)
 - Class names include type suffix (e.g., `HomeComponent`, `AuthService`)
+
+**NgRx SignalStore Conventions (Event API):**
+- Each feature domain has its own `store/` folder
+- Store files follow the pattern: `<domain>.<artifact-type>.ts`
+  - `<domain>.state.ts` - State interface (`<Domain>State`) and `initial<Domain>State`
+  - `<domain>.selectors.ts` - Pure functions for computed values (used with `withComputed`)
+  - `<domain>.events.ts` - Event definitions using `eventGroup()` with `type<T>()` from `@ngrx/signals`
+  - `<domain>.reducers.ts` - Reducer array using `on()` handlers for state updates
+  - `<domain>.effects.ts` - Side effects using `Events.on()` and RxJS operators
+  - `<domain>.store.ts` - Main `signalStore()` combining all features
+- Stores are provided at root level: `signalStore({ providedIn: 'root' }, ...)`
+- Use `withDevtools('storeName')` from `@angular-architects/ngrx-toolkit` for Redux DevTools
+- Use `withReducer(...reducers)` from `@ngrx/signals/events` for state updates
+- Use `withEventHandlers(effectsFn)` from `@ngrx/signals/events` for side effects
+- Use `injectDispatch(events)` from `@ngrx/signals/events` in components to dispatch events
+- Use `mapResponse` from `@ngrx/operators` for handling Observable success/error in effects
 
 **About `shtuff/` (use reluctantly):**
 - A `shtuff/` folder exists for truly generic utilities that don't belong to any domain
