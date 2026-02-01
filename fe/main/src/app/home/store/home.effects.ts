@@ -1,30 +1,24 @@
 import { inject } from '@angular/core';
-import { pipe, switchMap, tap } from 'rxjs';
-import { tapResponse } from '@ngrx/operators';
+import { switchMap } from 'rxjs';
+import { mapResponse } from '@ngrx/operators';
+import { Events } from '@ngrx/signals/events';
 import { HomeService } from '../services/home.service';
+import { homeEvents } from './home.events';
 
-export function createLoadMessageEffect(
-  setLoading: (loading: boolean) => void,
-  setMessage: (message: string) => void,
-  setError: (error: string) => void
-) {
+export function createHomeEffects() {
   const homeService = inject(HomeService);
+  const events = inject(Events);
 
-  return pipe(
-    tap(() => setLoading(true)),
-    switchMap(() =>
-      homeService.getHello().pipe(
-        tapResponse({
-          next: (message) => {
-            setMessage(message);
-            setLoading(false);
-          },
-          error: (err: Error) => {
-            setError(err.message);
-            setLoading(false);
-          }
-        })
+  return {
+    loadMessage$: events.on(homeEvents.loadMessage).pipe(
+      switchMap(() =>
+        homeService.getHello().pipe(
+          mapResponse({
+            next: (message) => homeEvents.loadMessageSuccess({ message }),
+            error: (err: Error) => homeEvents.loadMessageError({ error: err.message })
+          })
+        )
       )
     )
-  );
+  };
 }

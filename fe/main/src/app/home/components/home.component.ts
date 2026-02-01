@@ -1,5 +1,7 @@
 import { Component, inject } from '@angular/core';
+import { injectDispatch } from '@ngrx/signals/events';
 import { HomeStore } from '../store/home.store';
+import { homeEvents } from '../store/home.events';
 
 @Component({
   selector: 'app-home',
@@ -16,9 +18,10 @@ import { HomeStore } from '../store/home.store';
   styles: ``
 })
 export class HomeComponent {
+  private readonly dispatch = injectDispatch(homeEvents);
   readonly store = inject(HomeStore);
 
   testApi() {
-    this.store.loadMessage();
+    this.dispatch.loadMessage();
   }
 }

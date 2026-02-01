@@ -61,8 +61,9 @@ fe/main/src/app/
     ├── store/                # NgRx SignalStore for this feature
     │   ├── <feature>.state.ts      # State interface and initial state
     │   ├── <feature>.selectors.ts  # Computed selector functions
-    │   ├── <feature>.actions.ts    # Action type definitions
-    │   ├── <feature>.effects.ts    # Side effect functions (rxMethod)
+    │   ├── <feature>.events.ts     # Event definitions (eventGroup)
+    │   ├── <feature>.reducers.ts   # Reducer functions (on handlers)
+    │   ├── <feature>.effects.ts    # Side effect functions (withEffects)
     │   └── <feature>.store.ts      # Main SignalStore definition
     ├── directives/           # Directives specific to this feature
     │   └── *.directive.ts
@@ -80,18 +81,21 @@ fe/main/src/app/
 - Standalone components (no NgModules)
 - Class names include type suffix (e.g., `HomeComponent`, `AuthService`)
 
-**NgRx SignalStore Conventions:**
+**NgRx SignalStore Conventions (Event API):**
 - Each feature domain has its own `store/` folder
 - Store files follow the pattern: `<domain>.<artifact-type>.ts`
   - `<domain>.state.ts` - State interface (`<Domain>State`) and `initial<Domain>State`
   - `<domain>.selectors.ts` - Pure functions for computed values (used with `withComputed`)
-  - `<domain>.actions.ts` - Action interface defining method signatures
-  - `<domain>.effects.ts` - Side effect functions using `rxMethod` and RxJS operators
-  - `<domain>.store.ts` - Main `signalStore()` definition combining state, computed, and methods
+  - `<domain>.events.ts` - Event definitions using `eventGroup()` with `type<T>()` from `@ngrx/signals`
+  - `<domain>.reducers.ts` - Reducer array using `on()` handlers for state updates
+  - `<domain>.effects.ts` - Side effects using `Events.on()` and RxJS operators
+  - `<domain>.store.ts` - Main `signalStore()` combining all features
 - Stores are provided at root level: `signalStore({ providedIn: 'root' }, ...)`
-- Use `patchState()` for state updates within methods
-- Use `rxMethod` from `@ngrx/signals/rxjs-interop` for async operations
-- Use `tapResponse` from `@ngrx/operators` for handling Observable success/error
+- Use `withDevtools('storeName')` from `@angular-architects/ngrx-toolkit` for Redux DevTools
+- Use `withReducer(...reducers)` from `@ngrx/signals/events` for state updates
+- Use `withEventHandlers(effectsFn)` from `@ngrx/signals/events` for side effects
+- Use `injectDispatch(events)` from `@ngrx/signals/events` in components to dispatch events
+- Use `mapResponse` from `@ngrx/operators` for handling Observable success/error in effects
 
 **About `shtuff/` (use reluctantly):**
 - A `shtuff/` folder exists for truly generic utilities that don't belong to any domain
