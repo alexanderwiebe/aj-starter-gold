@@ -1,12 +1,18 @@
 {
   "name": "AI Document",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/node/.claude,type=bind,consistency=cached"
+  ],
+  "remoteEnv": {
+    "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN}"
+  },
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/shyim/devcontainers-features/bun:0": {}
   },
   "forwardPorts": [3000, 4200],
-  "postCreateCommand": "bun install && bunx playwright install --with-deps chromium",
+  "postCreateCommand": "bun install && bunx playwright install --with-deps chromium && npm install -g @anthropic-ai/claude-code",
   "customizations": {
     "vscode": {
       "extensions": [
