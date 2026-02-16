@@ -1,0 +1,179 @@
+name: Project Board Sync
+
+on:
+  issues:
+    types: [labeled, closed]
+
+concurrency:
+  group: tasks-md-update
+  cancel-in-progress: false
+
+jobs:
+  in-progress:
+    if: >-
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'in-progress'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve context
+        id: ctx
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          SLUG=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | cut -c1-40)
+          BRANCH="feat/${ISSUE_NUMBER}-${SLUG}"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.PROJECT_PAT }}
+
+      - name: Create feature branch
+        env:
+          BRANCH: ${{ steps.ctx.outputs.branch }}
+        run: |
+          git fetch origin
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "Branch $BRANCH already exists, checking it out"
+            git checkout -b "$BRANCH" "origin/$BRANCH"
+          else
+            echo "Creating new branch $BRANCH"
+            git checkout -b "$BRANCH"
+          fi
+
+      - name: Update TASKS.md
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          chmod +x .github/scripts/update-tasks.sh
+          .github/scripts/update-tasks.sh in-progress "$ISSUE_NUMBER" "$ISSUE_TITLE"
+
+      - name: Commit and push
+        env:
+          BRANCH: ${{ steps.ctx.outputs.branch }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet TASKS.md; then
+            echo "No changes to TASKS.md"
+          else
+            git add TASKS.md
+            git commit -m "chore: mark issue #${ISSUE_NUMBER} as in-progress in TASKS.md"
+          fi
+          git push -u origin "$BRANCH"
+
+      - name: Assign issue to repo owner
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_PAT }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --add-assignee alexanderwiebe
+
+      - name: Move project card to In Progress
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_PAT }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # Get the project item ID for this issue
+          ITEM_ID=$(gh api graphql -f query='
+            query($owner: String!, $number: Int!) {
+              user(login: $owner) {
+                projectV2(number: $number) {
+                  items(first: 100) {
+                    nodes {
+                      id
+                      content {
+                        ... on Issue {
+                          number
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ' -f owner="alexanderwiebe" -F number=2 \
+            | jq -r ".data.user.projectV2.items.nodes[] | select(.content.number == ${ISSUE_NUMBER}) | .id")
+
+          if [ -z "$ITEM_ID" ]; then
+            echo "Issue not found in project, skipping board sync"
+            exit 0
+          fi
+
+          # Get the Status field ID and "In Progress" option ID
+          FIELD_DATA=$(gh api graphql -f query='
+            query($owner: String!, $number: Int!) {
+              user(login: $owner) {
+                projectV2(number: $number) {
+                  id
+                  field(name: "Status") {
+                    ... on ProjectV2SingleSelectField {
+                      id
+                      options {
+                        id
+                        name
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ' -f owner="alexanderwiebe" -F number=2)
+
+          PROJECT_ID=$(echo "$FIELD_DATA" | jq -r '.data.user.projectV2.id')
+          FIELD_ID=$(echo "$FIELD_DATA" | jq -r '.data.user.projectV2.field.id')
+          OPTION_ID=$(echo "$FIELD_DATA" | jq -r '.data.user.projectV2.field.options[] | select(.name == "In Progress") | .id')
+
+          # Set the status
+          gh api graphql -f query='
+            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+              updateProjectV2ItemFieldValue(input: {
+                projectId: $projectId
+                itemId: $itemId
+                fieldId: $fieldId
+                value: { singleSelectOptionId: $optionId }
+              }) {
+                projectV2Item { id }
+              }
+            }
+          ' -f projectId="$PROJECT_ID" -f itemId="$ITEM_ID" -f fieldId="$FIELD_ID" -f optionId="$OPTION_ID"
+
+          echo "Moved issue #${ISSUE_NUMBER} to In Progress on project board"
+
+  done:
+    if: >-
+      github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.PROJECT_PAT }}
+
+      - name: Update TASKS.md
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          chmod +x .github/scripts/update-tasks.sh
+          .github/scripts/update-tasks.sh done "$ISSUE_NUMBER" "$ISSUE_TITLE"
+
+      - name: Commit and push to main
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet TASKS.md; then
+            echo "No changes to TASKS.md"
+          else
+            git add TASKS.md
+            git commit -m "chore: mark issue #${ISSUE_NUMBER} as done in TASKS.md"
+            git push origin main
+          fi
